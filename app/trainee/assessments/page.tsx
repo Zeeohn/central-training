@@ -5,8 +5,8 @@ export default function Assignment() {
     <div className="min-h-screen bg-gray-100">
       <div className="flex">
         {/* Main content */}
-        <div className="ml-16 flex-1 md:ml-64">
-          <div className="p-4 md:p-8">
+        <div className="flex-1">
+          <div className="p-4">
             <div className="rounded-lg bg-white p-6 shadow-md">
               <h1 className="mb-4 text-2xl font-bold text-gray-800">
                 Assignments
