@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     // Set cookie for client route to read
     response.cookies.set("profile_data", JSON.stringify(data), {
-      maxAge: 60,
+      maxAge: 600,
       path: "/",
       httpOnly: false, // Accessible to client-side JavaScript
       sameSite: "lax",
