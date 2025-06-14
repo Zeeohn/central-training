@@ -81,11 +81,9 @@ export default function DataReceiver() {
   // Function to fetch user profile by email
   const fetchUserProfileByEmail = async (email: string) => {
     try {
-      const response = await axios.get(
+      const response = await axios.post(
         `${process.env.NEXT_PUBLIC_CENTRAL_SYSTEM_API_URL}/individuals/getbyemail`,
-        {
-          data: { email },
-        }
+        { email }
       );
 
       if (response.data && response.data.success) {
