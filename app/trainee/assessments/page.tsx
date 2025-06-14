@@ -6,7 +6,7 @@ export default function Assignment() {
       <div className="flex">
         {/* Main content */}
         <div className="flex-1">
-          <div className="p-4">
+          <div>
             <div className="rounded-lg bg-white p-6 shadow-md">
               <h1 className="mb-4 text-2xl font-bold text-gray-800">
                 Assignments

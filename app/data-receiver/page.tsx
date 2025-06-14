@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { authApi } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +13,7 @@ import {
 } from "@/store/features/authSlice";
 import { setCookie, getCookie, deleteCookie } from "cookies-next";
 import { Loader2 } from "lucide-react";
+import axios from "axios";
 
 export default function DataReceiver() {
   const [isProcessing, setIsProcessing] = useState(true);
@@ -20,6 +21,19 @@ export default function DataReceiver() {
   const router = useRouter();
   const dispatch = useDispatch();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+
+  // Function to validate email format
+  const isValidEmail = (email: string): boolean => {
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailPattern.test(email);
+  };
+
+  // Function to check auth token
+  const checkAuthToken = (): boolean => {
+    const authToken = getCookie("auth_token");
+    return !!authToken; // Return true if token exists
+  };
 
   const { mutate: addUser } = useMutation({
     mutationFn: authApi.addUser,
@@ -64,53 +78,100 @@ export default function DataReceiver() {
     },
   });
 
+  // Function to fetch user profile by email
+  const fetchUserProfileByEmail = async (email: string) => {
+    try {
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_CENTRAL_SYSTEM_API_URL}/individuals/getbyemail`,
+        {
+          params: { email },
+        }
+      );
+
+      if (response.data && response.data.success) {
+        // Call addUser with the profile data
+        addUser(response.data.profile || response.data);
+      } else {
+        throw new Error("Could not retrieve profile data");
+      }
+    } catch (error: any) {
+      console.error("Error fetching profile by email:", error);
+      setIsProcessing(false);
+      setError(error.response?.data?.message || "Failed to fetch user profile");
+      toast({
+        title: "Error",
+        description:
+          error.response?.data?.message || "Failed to fetch user profile",
+        variant: "destructive",
+      });
+
+      // Redirect to sign in page after a delay on error
+      setTimeout(() => {
+        router.push("/signin");
+      }, 3000);
+    }
+  };
+
   useEffect(() => {
-    // Read profile data from cookie on mount
-    const processProfileData = () => {
+    const processRequest = async () => {
       try {
-        const cookieValue = getCookie("profile_data");
-        if (!cookieValue) {
-          setIsProcessing(false);
-          setError("No profile data found. Please try again.");
-          toast({
-            title: "Error",
-            description: "No profile data found. Please try again.",
-            variant: "destructive",
-          });
-          return;
+        // Check for email in URL query params (could be encoded)
+        const emailParam = searchParams.get("email");
+        const decodedEmail = emailParam ? decodeURIComponent(emailParam) : null;
+
+        // If email is present in the query params
+        if (decodedEmail) {
+          // Validate email format
+          if (!isValidEmail(decodedEmail)) {
+            setIsProcessing(false);
+            setError("Invalid email format. Please try again.");
+            toast({
+              title: "Error",
+              description: "Invalid email format. Please try again.",
+              variant: "destructive",
+            });
+
+            // Redirect to sign in page after a short delay
+            setTimeout(() => {
+              router.push("/signin");
+            }, 3000);
+            return;
+          }
+
+          // Fetch user profile by email
+          await fetchUserProfileByEmail(decodedEmail);
         }
-        let profileData: Record<string, any> = {};
-        try {
-          profileData = JSON.parse(cookieValue as string);
-        } catch (e) {
-          setIsProcessing(false);
-          setError("Invalid profile data. Please try again.");
-          toast({
-            title: "Error",
-            description: "Invalid profile data. Please try again.",
-            variant: "destructive",
-          });
-          return;
+        // No email in query params - check for existing auth token
+        else {
+          if (checkAuthToken()) {
+            // Auth token exists, redirect to dashboard
+            router.push("/trainee/interview-questions");
+          } else {
+            // No auth token, redirect to sign in
+            router.push("/signin");
+          }
         }
-        // Clear the cookie after reading
-        deleteCookie("profile_data");
-        // Call the API with the profile data
-        addUser(profileData);
       } catch (error) {
-        console.error("Error processing profile data from cookie:", error);
+        console.error("Error in data receiver:", error);
         setIsProcessing(false);
-        setError("Failed to process profile data. Please try again.");
+        setError("Something went wrong. Please try again.");
         toast({
           title: "Error",
-          description: "Failed to process profile data. Please try again.",
+          description: "Something went wrong. Please try again.",
           variant: "destructive",
         });
+
+        // Redirect to sign in page after a delay
+        setTimeout(() => {
+          router.push("/signin");
+        }, 3000);
       }
     };
-    // Process the profile data after a short delay to ensure cookie is set
-    const timer = setTimeout(processProfileData, 100);
+
+    // Process the request after a short delay
+    const timer = setTimeout(processRequest, 100);
     return () => clearTimeout(timer);
-  }, [addUser, toast]);
+  }, [searchParams, router, toast, addUser]);
 
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center bg-gradient-to-br from-purple-900 to-purple-800">
