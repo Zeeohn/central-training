@@ -84,7 +84,7 @@ export default function DataReceiver() {
       const response = await axios.get(
         `${process.env.NEXT_PUBLIC_CENTRAL_SYSTEM_API_URL}/individuals/getbyemail`,
         {
-          params: { email },
+          data: { email },
         }
       );
 
@@ -118,6 +118,8 @@ export default function DataReceiver() {
         // Check for email in URL query params (could be encoded)
         const emailParam = searchParams.get("email");
         const decodedEmail = emailParam ? decodeURIComponent(emailParam) : null;
+
+        console.log("Decoded email from query params:", decodedEmail);
 
         // If email is present in the query params
         if (decodedEmail) {
