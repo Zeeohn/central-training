@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import Image from "next/image";
+import { getCookie } from "cookies-next";
 
 interface Question {
   text: string;
@@ -40,6 +41,14 @@ interface ApiResponse {
   statusCode: number;
 }
 
+// Add types for formData and formErrors
+interface FormDataType {
+  [key: string]: string;
+}
+interface FormErrorsType {
+  [key: string]: string | null;
+}
+
 export default function InterviewQuestions() {
   const { profile, leadershipLevel } = useSelector(
     (state: RootState) => state.auth
@@ -52,8 +61,8 @@ export default function InterviewQuestions() {
   const [signature, setSignature] = useState<string | null>(
     profile?.cached_bio?.signature || null
   );
-  const [formData, setFormData] = useState({});
-  const [formErrors, setFormErrors] = useState({});
+  const [formData, setFormData] = useState<FormDataType>({});
+  const [formErrors, setFormErrors] = useState<FormErrorsType>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formLeadershipLevel, setFormLeadershipLevel] = useState<string | null>(
     null
@@ -130,7 +139,11 @@ export default function InterviewQuestions() {
     }
   }, [leadershipLevel]);
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
@@ -147,13 +160,14 @@ export default function InterviewQuestions() {
   };
 
   const validateForm = () => {
-    const errors = {};
+    const errors: FormErrorsType = {};
     const requiredFields = document.querySelectorAll(
       "input[required], textarea[required], select[required]"
     );
 
     requiredFields.forEach((field) => {
       const name = field.getAttribute("name");
+      if (!name) return;
 
       // Skip validation for follow-up questions when the related yes/no question is "no"
       if (
@@ -186,30 +200,34 @@ export default function InterviewQuestions() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
 
+    const token = getCookie("auth_token")
+
     if (validateForm()) {
       try {
-        // Create form data object that would be sent to backend
-        const completeFormData = {
-          leadershipLevel,
-          form_id: form?._id,
-          profilePicture,
-          signature,
-          ...formData,
+        if (!form) throw new Error("Form not loaded");
+        // Prepare the payload as required by the API
+        const payload = {
+          cohort: form.cohort._id,
+          interview_form: form._id,
+          responses: form.questions.map((question) => ({
+            questionId: question.id,
+            response: formData[question.id] || "",
+          })),
         };
 
-        // TODO: Add API endpoint for form submission
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_TRAINING_API_URL}/interview-form/submit`,
+          `${process.env.NEXT_PUBLIC_TRAINING_API_URL}/interview-submission/add-submission`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(completeFormData),
+            body: JSON.stringify(payload),
           }
         );
 
@@ -282,7 +300,7 @@ export default function InterviewQuestions() {
   useEffect(() => {
     // Clear relationship details when "inRelationship" changes to "no"
     if (formData["inRelationship"] === "no") {
-      setFormData((prev) => ({
+      setFormData((prev: FormDataType) => ({
         ...prev,
         relationshipDetails: "",
         relationshipWith: "",
@@ -292,7 +310,7 @@ export default function InterviewQuestions() {
 
     // Clear challenges details when "hasChallenges" changes to "no"
     if (formData["hasChallenges"] === "no") {
-      setFormData((prev) => ({
+      setFormData((prev: FormDataType) => ({
         ...prev,
         challengesDetails: "",
       }));

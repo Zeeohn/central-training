@@ -86,9 +86,10 @@ export default function DataReceiver() {
         { email }
       );
 
-      if (response.data && response.data.success) {
+      if (response.data.data && response.data.success) {
+        console.log("Data from fetch profile: ", response.data);
         // Call addUser with the profile data
-        addUser(response.data.profile || response.data);
+        addUser(response.data.data.profile);
       } else {
         throw new Error("Could not retrieve profile data");
       }
